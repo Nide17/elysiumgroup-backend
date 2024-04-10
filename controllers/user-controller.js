@@ -1,5 +1,8 @@
 import User from "../models/user";
 import bcrypt from "bcryptjs";
+import nodemailer from "nodemailer";
+import UserVerification from "../models/UserVerification";
+
 export const getAllUser = async (req, res, next) => {
   let users;
   try {
@@ -13,8 +16,33 @@ export const getAllUser = async (req, res, next) => {
   return res.status(200).json({ users });
 };
 
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000); // Generate a 6 digit OTP
+};
+
+const sendOTP = async (email, otp) => {
+  const transporter = nodemailer.createTransport({
+    service: "Gmail",
+    auth: {
+      user: process.env.emailusername,
+      pass: process.env.emailpassword, // TO DO ******
+    },
+  });
+
+  // Email content
+
+  const mailOptions = {
+    from: "Elysium",
+    to: email,
+    subject: "OTP Verification",
+    text: `Your OTP for registration is: ${otp}`,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
 export const signup = async (req, res, next) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, otp } = req.body;
 
   // Name
   if (!name) {
@@ -44,12 +72,24 @@ export const signup = async (req, res, next) => {
   const passwordRegex =
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(password)) {
+    return res.status(400).json({
+      message:
+        "Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and be at least 8 characters long",
+    });
+  }
+  if (!otp) {
     return res
       .status(400)
-      .json({
-        message:
-          "Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and be at least 8 characters long",
-      });
+      .json({ message: "OTP is required for email verification" });
+  }
+
+  console.log("Email entered during signup:", email);
+
+  // check if OTP is valid
+  const userOTP = await UserVerification.findOne({ email }, { otp: 1 }).lean();
+  console.log("User OTP from database****:", userOTP);
+  if (!userOTP || userOTP.otp !== otp) {
+    return res.status(400).json({ message: "Invalid OTP" });
   }
 
   let existingUser;
@@ -116,12 +156,10 @@ export const login = async (req, res, next) => {
   const passwordRegex =
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(password)) {
-    return res
-      .status(400)
-      .json({
-        message:
-          "Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and be at least 8 characters long",
-      });
+    return res.status(400).json({
+      message:
+        "Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and be at least 8 characters long",
+    });
   }
 
   let existingUser;
@@ -156,4 +194,39 @@ export const logout = (req, res) => {
     }
     res.status(200).json({ message: "Logged out successfully" });
   });
+};
+
+export const sendVerificationEmail = async (req, res) => {
+  const { email } = req.body;
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ message: "Invalid email format" });
+  }
+
+  // Generate OTP
+  const otp = generateOTP();
+
+  try {
+    // Check if the email already exists in the UserVerification collection
+    let existingUser = await UserVerification.findOne({ email });
+
+    if (existingUser) {
+      // If the email exists, update the existing document with the new OTP
+      await UserVerification.updateOne({ email }, { $set: { otp } });
+    } else {
+      // If the email doesn't exist, create a new document
+      await UserVerification.create({ email, otp });
+    }
+
+    // Send OTP email
+    await sendOTP(email, otp);
+
+    return res
+      .status(200)
+      .json({ message: "OTP sent to email for verification" });
+  } catch (err) {
+    console.error("Error sending OTP:", err);
+    return res.status(500).json({ message: "Error sending OTP" });
+  }
 };

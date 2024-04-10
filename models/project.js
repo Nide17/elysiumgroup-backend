@@ -34,8 +34,14 @@ const ProjectSchema = new Schema({
     required: true,
   },
   pGallery: {
-    type: Array,
-    required: true,
+    public_id: {
+      type: String,
+      required: true,
+    },
+    url: {
+      type: String,
+      required: true,
+    },
   },
   user: {
     type: mongoose.Types.ObjectId,
