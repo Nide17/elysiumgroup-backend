@@ -83,11 +83,9 @@ export const signup = async (req, res, next) => {
       .json({ message: "OTP is required for email verification" });
   }
 
-  console.log("Email entered during signup:", email);
 
   // check if OTP is valid
   const userOTP = await UserVerification.findOne({ email }, { otp: 1 }).lean();
-  console.log("User OTP from database****:", userOTP);
   if (!userOTP || userOTP.otp !== otp) {
     return res.status(400).json({ message: "Invalid OTP" });
   }
