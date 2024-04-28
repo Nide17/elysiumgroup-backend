@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose from "mongoose"
 
 const ServiceSchema = new mongoose.Schema({
   serviceName: {
@@ -13,8 +13,8 @@ const ServiceSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-});
+}, { timestamps: true })
 
-const Service = mongoose.model("Service", ServiceSchema);
+const Service = mongoose.model("Service", ServiceSchema)
 
-export default Service;
+export default Service

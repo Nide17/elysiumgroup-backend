@@ -1,20 +1,13 @@
-import express from "express";
-import {
-  getAllClients,
-  addClient,
-  updateClient,
-  getOneClient,
-  deleteClient,
-} from "../controllers/projectClient-controller";
+import express from "express"
+import { getAllClients, addClient, updateClient, getOneClient, deleteClient } from "../controllers/clients-controller.js"
+import { isAuthenticated } from "../middlewares/authentication.js"
 
-import { isAuthenticated } from "../middlewares/authentication";
+const router = express.Router()
 
-const clientRouter = express.Router();
+router.get("/", isAuthenticated, getAllClients)
+router.post("/add", isAuthenticated, addClient)
+router.put("/update/:id", isAuthenticated, updateClient)
+router.get("/:id", isAuthenticated, getOneClient)
+router.delete("/:id", deleteClient)
 
-clientRouter.get("/", isAuthenticated, getAllClients);
-clientRouter.post("/add", isAuthenticated, addClient);
-clientRouter.put("/update/:id", isAuthenticated, updateClient);
-clientRouter.get("/:id", isAuthenticated, getOneClient);
-clientRouter.delete("/:id", deleteClient);
-
-export default clientRouter;
+export default router

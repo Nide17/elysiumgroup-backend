@@ -1,6 +1,6 @@
-import mongoose from "mongoose";
+import mongoose from "mongoose"
 
-const Schema = mongoose.Schema;
+const Schema = mongoose.Schema
 
 const ProjectSchema = new Schema({
   pName: {
@@ -48,6 +48,6 @@ const ProjectSchema = new Schema({
     ref: "User",
     required: true,
   },
-});
+}, { timestamps: true })
 
-export default mongoose.model("Project", ProjectSchema);
+export default mongoose.model("Project", ProjectSchema)

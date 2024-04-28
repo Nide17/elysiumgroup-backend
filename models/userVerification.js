@@ -1,6 +1,6 @@
-import mongoose from "mongoose";
+import mongoose from "mongoose"
 
-const Schema = mongoose.Schema;
+const Schema = mongoose.Schema
 
 const UserVerification = new Schema({
   email: {
@@ -10,6 +10,6 @@ const UserVerification = new Schema({
   otp: {
     type: String,
   },
-});
+}, { timestamps: true })
 
-export default mongoose.model("UserVerification", UserVerification);
+export default mongoose.model("UserVerification", UserVerification)
