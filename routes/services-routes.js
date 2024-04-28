@@ -1,18 +1,12 @@
-import express from "express";
-import {
-  getAllServices,
-  addServices,
-  updateService,
-  deleteService,
-} from "../controllers/service-controller";
+import express from "express"
+import { getAllServices, addServices, updateService, deleteService } from "../controllers/services-controller.js"
+import { isAuthenticated } from "../middlewares/authentication.js"
 
-import { isAuthenticated } from "../middlewares/authentication";
+const router = express.Router()
 
-const serviceRouter = express.Router();
+router.get("/", isAuthenticated, getAllServices)
+router.post("/", isAuthenticated, addServices)
+router.put("/:id", isAuthenticated, updateService)
+router.delete("/:id", isAuthenticated, deleteService)
 
-serviceRouter.get("/", isAuthenticated, getAllServices);
-serviceRouter.post("/add", isAuthenticated, addServices);
-serviceRouter.put("/update/:id", isAuthenticated, updateService);
-serviceRouter.delete("/:id", isAuthenticated, deleteService);
-
-export default serviceRouter;
+export default router

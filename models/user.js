@@ -1,6 +1,6 @@
-import mongoose from "mongoose";
+import mongoose from "mongoose"
 
-const Schema = mongoose.Schema;
+const Schema = mongoose.Schema
 
 const UserSchema = new Schema({
   name: {
@@ -23,6 +23,6 @@ const UserSchema = new Schema({
     default: "user",
   },
   projects: [{ type: mongoose.Types.ObjectId, ref: "Project", required: true }],
-});
+}, { timestamps: true })
 
-export default mongoose.model("User", UserSchema);
+export default mongoose.model("User", UserSchema)

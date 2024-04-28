@@ -1,6 +1,6 @@
-import mongoose from "mongoose";
+import mongoose from "mongoose"
 
-const ClienSchema = new mongoose.Schema({
+const ClientSchema = new mongoose.Schema({
   clientName: {
     type: String,
     required: true,
@@ -23,8 +23,8 @@ const ClienSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-});
+}, { timestamps: true })
 
-const Client = mongoose.model("Client", ClienSchema);
+const Client = mongoose.model("Client", ClientSchema)
 
-export default Client;
+export default Client
