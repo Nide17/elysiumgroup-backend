@@ -1,5 +1,5 @@
 // Middleware to check if a user is authenticated
-export const isAuthenticated = (req, res, next) => {
+exports.isAuthenticated = (req, res, next) => {
   if (req.session.user) {
     next()
   } else {

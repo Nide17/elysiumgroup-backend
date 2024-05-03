@@ -1,5 +1,5 @@
-import { v2 as cloudinaryV2 } from "cloudinary"
-import dotenv from "dotenv"
+const cloudinaryV2 = require('cloudinary').v2
+const dotenv = require("dotenv")
 
 dotenv.config()
 
@@ -12,4 +12,25 @@ cloudinary.config({
   secure: true,
 })
 
-export default cloudinary
+// Helper function to upload files to Cloudinary
+const uploadImagesToCloudinary = async (files, parentFolder, subFolder) => {
+
+  // Upload single or multiple files to Cloudinary
+  Array.isArray(files) ? files : files ? files = [files] : files = [];
+
+  return await Promise.all(files.map(async (file) => {
+    try {
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: `${parentFolder}/${subFolder}`,
+        use_filename: true,
+        unique_filename: false,
+      });
+      return { public_id: result.public_id, url: result.secure_url };
+    } catch (error) {
+      console.error(`Failed to upload file: ${file.originalname}`, error);
+      return null;
+    }
+  }));
+};
+
+module.exports = {cloudinary, uploadImagesToCloudinary };

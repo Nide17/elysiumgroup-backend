@@ -1,46 +1,35 @@
-import Contact from "../models/Contact.js"
+const Contact = require("../models/Contact")
 
-export const getAllContacts = async (req, res, next) => {
-  let contacts
+exports.getAllContacts = async (req, res) => {
+
   try {
-    contacts = await Contact.find()
+    const contacts = await Contact.find()
+    return res.status(200).json(contacts)
   } catch (err) {
-    console.log(err)
+    res.status(500).json({ error: "Unable to get all contacts" })
   }
-  if (!Contact) {
-    return res.status(200).json({ message: "No contacts found" })
-  }
-  return res.status(200).json(contacts)
 }
 
-export const addContact = async (req, res, next) => {
-  const { contactName, email, message } = req.body
+exports.addContact = async (req, res) => {
+  
+  const { contactName, contactEmail, contactMessage } = req.body
 
-  const contact = new Contact({
-    contactName,
-    email,
-    message,
-  })
+  const contact = new Contact({ contactName, contactEmail, contactMessage })
   try {
     const result = await contact.save()
-    res.status(201).json(result)
+    res.status(201).json({ message: "Message sent!", result })
 
   } catch (error) {
-    console.log(error)
     res.status(500).json({ message: "Failed to add contact" })
   }
 }
-export const updateContact = async (req, res, next) => {
-  const { contactName, email, message } = req.body
-  const contactId = req.params.id
+exports.updateContact = async (req, res) => {
+  const { contactName, contactEmail, contactMessage } = req.body
+  const contactID = req.params.contactID
   let contact
 
   try {
-    contact = await Contact.findByIdAndUpdate(contactId, {
-      contactName,
-      email,
-      message,
-    })
+    contact = await Contact.findByIdAndUpdate(contactID, { contactName, contactEmail, contactMessage })
   } catch (error) {
     return console.log(error)
   }
@@ -50,13 +39,13 @@ export const updateContact = async (req, res, next) => {
   return res.status(200).json(contact)
 }
 
-export const getOneContact = async (req, res, next) => {
-  const contactId = req.params.id
+exports.getOneContact = async (req, res) => {
+  const contactID = req.params.contactID
 
   let contact
 
   try {
-    contact = await Contact.findById(contactId)
+    contact = await Contact.findById(contactID)
   } catch (error) {
     return console.log(error)
   }
@@ -66,11 +55,11 @@ export const getOneContact = async (req, res, next) => {
   return res.status(200).json(contact)
 }
 
-export const deleteContact = async (req, res, next) => {
-  const contactId = req.params.id
+exports.deleteContact = async (req, res) => {
+  const contactID = req.params.contactID
 
   try {
-    const deletedContact = await Contact.findByIdAndDelete(contactId)
+    const deletedContact = await Contact.findByIdAndDelete(contactID)
 
     if (!deletedContact) {
       return res.status(404).json({ message: "Contact not found" })
@@ -79,7 +68,6 @@ export const deleteContact = async (req, res, next) => {
       .status(200)
       .json({ message: "Contact deleted successfully", contact: deletedContact })
   } catch (error) {
-    console.log(error)
     res.status(500).json({ message: "Failed to delete contact" })
   }
 }

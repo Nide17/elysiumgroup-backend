@@ -1,13 +1,15 @@
-import express from "express"
-import { getAllClients, addClient, updateClient, getOneClient, deleteClient } from "../controllers/clients-controller.js"
-import { isAuthenticated } from "../middlewares/authentication.js"
+const express = require("express")
+const {getAllClients, addClient, addClientLogo, updateClient, getOneClient, deleteClient } = require("../controllers/clients-controller")
+const upload = require("../middlewares/multer")
+const { isAuthenticated } = require("../middlewares/authentication")
 
 const router = express.Router()
 
-router.get("/", isAuthenticated, getAllClients)
-router.post("/add", isAuthenticated, addClient)
-router.put("/update/:id", isAuthenticated, updateClient)
-router.get("/:id", isAuthenticated, getOneClient)
-router.delete("/:id", deleteClient)
+router.get("/", getAllClients)
+router.post("/", addClient)
+router.put("/:clientID", updateClient)
+router.get("/:clientID", getOneClient)
+router.delete("/:clientID", deleteClient)
+router.put("/add-logo/:clientID", upload.single("clientLogo"), addClientLogo)
 
-export default router
+module.exports = router

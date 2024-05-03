@@ -1,4 +1,4 @@
-import mongoose from "mongoose"
+const mongoose = require("mongoose")
 
 const ServiceSchema = new mongoose.Schema({
   serviceName: {
@@ -13,8 +13,17 @@ const ServiceSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    // required: true,
+  },
+  lastUpdatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  }
 }, { timestamps: true })
 
 const Service = mongoose.model("Service", ServiceSchema)
 
-export default Service
+module.exports = Service
