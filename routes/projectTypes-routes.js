@@ -1,12 +1,12 @@
-import express from "express"
-import { getAllProjectTypes, addProjectType, updateProjectType, deleteProjectType } from "../controllers/projectTypes-controller.js"
-import { isAuthenticated } from "../middlewares/authentication.js"
+const express = require("express")
+const {getAllProjectTypes, addProjectType, updateProjectType, deleteProjectType } = require("../controllers/projectTypes-controller")
+const { isAuthenticated } = require("../middlewares/authentication")
 
 const router = express.Router()
 
-router.get("/", isAuthenticated, getAllProjectTypes)
-router.post("/", isAuthenticated, addProjectType)
-router.put("/:id", isAuthenticated, updateProjectType)
-router.delete("/:id", isAuthenticated, deleteProjectType)
+router.get("/", getAllProjectTypes)
+router.post("/", addProjectType)
+router.put("/:pTypeID", updateProjectType)
+router.delete("/:pTypeID", deleteProjectType)
 
-export default router
+module.exports = router

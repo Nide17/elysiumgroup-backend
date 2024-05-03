@@ -1,123 +1,58 @@
-import cloudinary from "../utils/cloudinary.js"
-import Project from "../models/Project.js"
-import User from "../models/User.js"
+const cloudinary = require("../utils/cloudinary")
+const Project = require("../models/Project")
+const User = require("../models/User")
 
-export const getAllProjects = async (req, res, next) => {
+// Helper function to upload files to Cloudinary
+const uploadPGalleryToCloudinary = async (files, projectName) => {
+
+  return await Promise.all(files.map(async (file) => {
+    try {
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: `projects/${projectName}`,
+        use_filename: true,
+        unique_filename: false,
+      });
+      return { public_id: result.public_id, url: result.secure_url };
+    } catch (error) {
+      console.error(`Failed to upload file: ${file.originalname}`, error);
+      return null;
+    }
+  }));
+};
+
+exports.getAllProjects = async (req, res) => {
   let projects
 
   try {
     projects = await Project.find()
+      .populate({ path: 'pClient', select: 'clientName' })
+      .populate({ path: 'pType', select: 'typeName' })
   } catch (err) {
-    console.log(err)
+    return res.status(500).json({ message: "Internal Server Error" })
   }
   if (!projects) {
-    return res.status(200).json({ message: "No Projects Found" })
+    return res.status(400).json({ message: "No Projects Found" })
   }
+
   return res.status(200).json(projects)
 }
 
-export const addProject = async (req, res, next) => {
-  const {
-    pName,
-    pClient,
-    pDate,
-    pType,
-    finished,
-    pLocation,
-    pDescription,
-    user,
-  } = req.body
-
-  try {
-    // Upload file to Cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: "projects",
-    })
-
-    // Create project with Cloudinary image details
-    const project = await Project.create({
-      pName,
-      pClient,
-      pDate,
-      pType,
-      finished,
-      pLocation,
-      pDescription,
-      pGallery: {
-        public_id: result.public_id,
-        url: result.secure_url,
-      },
-      user,
-    })
-
-    // Send success response with project details and a message
-    res
-      .status(201)
-      .json({ success: true, project, message: "Project added successfully" })
-  } catch (error) {
-    console.log(error)
-    next(error)
-  }
-}
-
-export const updateProject = async (req, res, next) => {
-  const { pName, pClient, pType, finished, pDescription, pGallery, user } =
-    req.body
-  const projectId = req.params.id
+exports.getOneProject = async (req, res) => {
   let project
 
   try {
-    project = await Project.findByIdAndUpdate(projectId, {
-      pName,
-      pClient,
-      pType,
-      finished,
-      pDescription,
-      pGallery,
-      user,
-    })
+    project = await Project.findById(req.params.projectID)
   } catch (err) {
     return console.log(err)
   }
   if (!project) {
-    return res.status(500).json({ message: "Unable to update project" })
+    return res.status(404).json({ message: "Project not found! " })
   }
+
   return res.status(200).json(project)
 }
 
-export const getOneProject = async (req, res, next) => {
-  const projectId = req.params.id
-  let project
-
-  try {
-    project = await Project.findById(projectId)
-  } catch (err) {
-    return console.log(err)
-  }
-  if (!project) {
-    return res.status(404).json({ message: "No project found " })
-  }
-  return res.status(200).json(project)
-}
-
-export const deleteProject = async (req, res, next) => {
-  const projectId = req.params.id
-
-  let project
-  try {
-    project = await Project.findOneAndDelete(projectId).populate("user")
-    await project.user.projects.pull(project)
-    await project.user.save()
-  } catch (err) {
-    return console.log(err)
-  }
-  if (!project) {
-    return res.status(500).json({ message: "Unable to delete" })
-  }
-  return res.status(200).json({ message: "Successfully deleted" })
-}
-
-export const getByUserId = async (req, res, next) => {
+exports.getByUserId = async (req, res) => {
   const userId = req.params.id
   let userProjects
   try {
@@ -129,4 +64,169 @@ export const getByUserId = async (req, res, next) => {
     return res.status(404).json({ message: "No Project found" })
   }
   return res.status(200).json(userProjects)
+}
+
+exports.addProject = async (req, res) => {
+  const { pName, pClient, pStartDate, pType, status, pLocation, pDescription, createdBy, lastUpdatedBy } = req.body
+  let uploadResults
+
+  // validate
+  if (!pName || !pLocation) {
+    return res.status(400).json({ message: "Name and location fields are required!" })
+  }
+
+  try {
+
+    // Upload files to Cloudinary if any are provided
+    if (req.files && req.files.length > 0) {
+      uploadResults = await uploadPGalleryToCloudinary(req.files, pName.replace(/\s+/g, '_').toLowerCase())
+    }
+
+    // Filter out any failed uploads
+    const successfulUploads = uploadResults && uploadResults.filter(result => result !== null)
+
+    // Prepare the project gallery with uploaded images
+    const pGallery = successfulUploads && successfulUploads.map(image => ({
+      public_id: image.public_id,
+      url: image.url
+    }))
+
+    // Create project with Cloudinary image details
+    const project = await Project.create({
+      pName, pClient, pStartDate, pType, status, pLocation, pDescription, pGallery, createdBy, lastUpdatedBy: createdBy
+    })
+
+    // Send success response with project details and a message
+    res.status(201).json({ success: true, project, message: "Project added successfully" })
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ success: false, message: "Failed to add project" })
+  }
+}
+
+exports.addProjectImages = async (req, res) => {
+  let project;
+  let newImages;
+
+  try {
+    project = await Project.findById(req.params.projectID);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    if (req.files && req.files.length > 0) {
+      const uploadResults = await uploadPGalleryToCloudinary(req.files, project.pName.replace(/\s+/g, '_').toLowerCase());
+      const successfulUploads = uploadResults.filter(result => result !== null);
+      newImages = successfulUploads.map(image => ({
+        public_id: image.public_id,
+        url: image.url,
+      }));
+
+      project.pGallery = [...project.pGallery, ...newImages];
+    }
+
+    await project.save();
+    return res.status(200).json({ message: "Image(s) uploaded successfully", newImages })
+  } catch (err) {
+
+    return res.status(500).json({ message: "Failed to upload image(s)" })
+  }
+};
+
+exports.deleteProjectImage = async (req, res) => {
+
+  let projectID = req.params.projectID;
+  let imageID = req.params.imageID;
+  try {
+    let project = await Project.findById(projectID);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    // Filter out the image to be deleted
+    const public_id = project.pGallery.find(image => image._id.toString() === imageID).public_id;
+
+    await cloudinary.uploader.destroy(public_id);
+    project.pGallery = project.pGallery.filter(image => image._id.toString() !== imageID);
+    await project.save();
+
+    // Send success response with updated project details
+    return res.status(200).json({ message: "Image deleted successfully", image_id: imageID });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({ message: "Failed to delete image" });
+  }
+};
+
+exports.updateProject = async (req, res) => {
+  const { pName, pClient, pStartDate, pType, status, pLocation, pDescription, createdBy, lastUpdatedBy } = req.body;
+  let project;
+  let projectID = req.params.projectID
+
+  try {
+    // First, find the project by its ID
+    project = await Project.findById(projectID);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    // Update the project with the new data
+    project.pName = pName;
+    project.pClient = pClient;
+    project.pStartDate = pStartDate;
+    project.pType = pType;
+    project.status = status;
+    project.pLocation = pLocation;
+    project.pDescription = pDescription;
+    project.createdBy = createdBy;
+    project.lastUpdatedBy = lastUpdatedBy;
+
+    // Save the updated project
+    await project.save();
+
+    // Send success response with updated project details
+    return res.status(200).json({ updatedProject: project, message: "Project updated successfully" })
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({ message: "Failed to update project" });
+  }
+};
+
+exports.deleteProject = async (req, res) => {
+
+  // let project
+  try {
+    // project = await Project.findOneAndDelete(req.params.projectID).populate("user")
+    // await project.user.projects.pull(project)
+    // await project.user.save()
+    let result = await Project.findByIdAndDelete(req.params.projectID)
+
+    if (!result) {
+      return res.status(500).json({ message: "Unable to delete" })
+    }
+
+    return res.status(200).json({ _id: req.params.projectID, message: "Project deleted successfully" })
+
+  } catch (err) {
+    return console.log(err)
+  }
+}
+
+
+// Get featured projects by createdBy
+exports.getFeaturedProjects = async (req, res) => {
+  let projects
+  const userID = req.params.userID
+  try {
+    projects = await Project.find({ createdBy: userID })
+  } catch (err) {
+    return console.log(err)
+  }
+  if (!projects?.length) {
+    return res.status(200).json({ message: "No Featured Projects found" })
+  }
+
+  return res.status(200).json(projects)
 }
