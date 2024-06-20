@@ -1,30 +1,34 @@
-import mongoose from "mongoose"
+const mongoose = require("mongoose")
 
 const ClientSchema = new mongoose.Schema({
   clientName: {
     type: String,
     required: true,
-  },
-  email: {
-    type: String,
-    required: true,
     unique: true,
   },
-  phone: {
+  clientEmail: {
+    type: String
+  },
+  clientPhone: {
     type: String,
     required: true,
   },
-  address: {
-    type: String,
-    required: true,
+  clientAddress: {
+    type: String
   },
   clientDetails: String,
   clientLogo: {
-    type: String,
-    required: true,
+    type: String
   },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+  lastUpdatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  }
 }, { timestamps: true })
 
 const Client = mongoose.model("Client", ClientSchema)
-
-export default Client
+module.exports = Client

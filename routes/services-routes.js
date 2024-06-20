@@ -1,12 +1,12 @@
-import express from "express"
-import { getAllServices, addServices, updateService, deleteService } from "../controllers/services-controller.js"
-import { isAuthenticated } from "../middlewares/authentication.js"
+const express = require("express")
+const {getAllServices, addService, updateService, deleteService } = require("../controllers/services-controller")
+const { isAuthenticated } = require("../middlewares/authentication")
 
 const router = express.Router()
 
-router.get("/", isAuthenticated, getAllServices)
-router.post("/", isAuthenticated, addServices)
-router.put("/:id", isAuthenticated, updateService)
-router.delete("/:id", isAuthenticated, deleteService)
+router.get("/", getAllServices)
+router.post("/", addService)
+router.put("/:id", updateService)
+router.delete("/:id", deleteService)
 
-export default router
+module.exports = router

@@ -1,13 +1,16 @@
-import express from "express"
-import { getAllUser, login, logout, signup, sendVerificationEmail } from "../controllers/users-controller.js"
-import { isAuthenticated } from "../middlewares/authentication.js"
+const express = require("express")
+const {getAllUsers, loadUser, login, logout, signup, verifyOTP, updateUser, deleteUser } = require("../controllers/users-controller")
+const { isAuthenticated } = require("../middlewares/authentication")
 
 const router = express.Router()
 
-router.get("/", isAuthenticated, getAllUser)
-router.post("/signup", signup)
+router.get("/", getAllUsers)
+router.get("/loadUser", loadUser)
 router.post("/login", login)
+router.post("/signup", signup)
+router.post("/verifyOTP", verifyOTP)
 router.post("/logout", logout)
-router.post("/send-verification-email", sendVerificationEmail)
+router.put("/:userID", updateUser)
+router.delete("/:userID", deleteUser)
 
-export default router
+module.exports = router

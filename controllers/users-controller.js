@@ -1,230 +1,269 @@
-import bcrypt from "bcryptjs"
-import nodemailer from "nodemailer"
-import User from "../models/User.js"
-import UserVerification from "../models/UserVerification.js"
-
-export const getAllUser = async (req, res, next) => {
-  let users
-  try {
-    users = await User.find()
-  } catch (err) {
-    console.log(err)
-  }
-  if (!users) {
-    return res.status(404).json({ message: "No user found" })
-  }
-  return res.status(200).json(users)
-}
+const bcrypt = require("bcryptjs")
+const nodemailer = require("nodemailer")
+const User = require("../models/User");
 
 const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000) // Generate a 6 digit OTP
-}
+  return Math.floor(100000 + Math.random() * 900000);
+};
 
 const sendOTP = async (email, otp) => {
   const transporter = nodemailer.createTransport({
     service: "Gmail",
     auth: {
-      user: process.env.emailusername,
-      pass: process.env.emailpassword, // TO DO ******
+      user: process.env.EMAIL_USERNAME,
+      pass: process.env.EMAIL_PASSWORD,
     },
-  })
-
-  // Email content
+  });
 
   const mailOptions = {
-    from: "Elysium",
+    from: "Elysium Group Ltd",
     to: email,
-    subject: "OTP Verification",
-    text: `Your OTP for registration is: ${otp}`,
+    subject: "One Time Password (OTP) verification for Elysium Group Ltd account",
+    html: `<h1>Your OTP is ${otp}</h1>
+      <p>Please do not share this OTP with anyone</p>
+      <p>This OTP will expire in 15 minutes</p>
+      <p>If you did not request this OTP, please ignore this email</p>
+      <p>Thank you for using Elysium Group Ltd.</p>`,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
+exports.getAllUsers = async (req, res) => {
+  let users;
+  try {
+    users = await User.find();
+  } catch (err) {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+  if (!users) {
+    return res.status(404).json({ message: "No user found" });
+  }
+  return res.status(200).json(users);
+};
+
+exports.signup = async (req, res) => {
+  const { name, email, password, role } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: "Name, email, and password are required" });
   }
 
-  await transporter.sendMail(mailOptions)
-}
-
-export const signup = async (req, res, next) => {
-  const { name, email, password, role, otp } = req.body
-
-  // Name
-  if (!name) {
-    return es.status(400).json({ message: "Name is required" })
-  }
-
-  // Email Validation
-  if (!email) {
-    return res.status(400).json({ message: "Email is required" })
-  }
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    return res.status(400).json({ message: "Invalid email format" })
-  }
-
-  // Password Validation
-  if (!password) {
-    return res.status(400).json({ message: "Password is required" })
+    return res.status(400).json({ message: "Invalid email format" });
   }
 
   if (password.length < 8) {
-    return res
-      .status(400)
-      .json({ message: "Password must be at least 8 characters long" })
+    return res.status(400).json({ message: "Password must be at least 8 characters long" });
   }
-  const passwordRegex =
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(password)) {
     return res.status(400).json({
-      message:
-        "Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and be at least 8 characters long",
-    })
-  }
-  if (!otp) {
-    return res
-      .status(400)
-      .json({ message: "OTP is required for email verification" })
+      message: "Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and be at least 8 characters long",
+    });
   }
 
-
-  // check if OTP is valid
-  const userOTP = await UserVerification.findOne({ email }, { otp: 1 }).lean()
-  if (!userOTP || userOTP.otp !== otp) {
-    return res.status(400).json({ message: "Invalid OTP" })
-  }
-
-  let existingUser
+  let existingUser;
   try {
-    existingUser = await User.findOne({ email })
+    existingUser = await User.findOne({ email });
   } catch (err) {
-    console.log(err)
+    return res.status(500).json({ message: "Internal Server Error" });
   }
+
   if (existingUser) {
-    return res
-      .status(400)
-      .json({ message: "User already exists, Please login instead." })
+    return res.status(400).json({ message: "Email already exists, please login instead!" });
   }
-  const hashedPassword = bcrypt.hashSync(password)
-  const user = new User({
-    name,
-    email,
-    password: hashedPassword,
-    role,
-    projects: [],
-  })
 
-  // Save the user to the database
+  const otp = generateOTP();
   try {
-    await user.save()
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const user = new User({ name, email, password: hashedPassword, role, otp, otp_expiry: Date.now() + 15 * 60 * 1000 });
+    await user.save();
+    await sendOTP(email, otp);
+    return res.status(200).json({ user: { name, email, role }, isSigningUp: true });
   } catch (err) {
-    console.log(err)
+    console.error("Error creating user: OTP not sent", err);
+    return res.status(500).json({ message: "Error creating user: OTP not sent" });
   }
-  return res.status(201).json(user)
-}
+};
 
-export const login = async (req, res, next) => {
-  // Check if user is already authenticated
-  if (req.session.user) {
-    return res.status(200).json({ message: "User is already logged in" })
-  }
+exports.login = async (req, res) => {
+  const { email, password } = req.body;
 
-  const { email, password } = req.body
-
-  // Email Validation
-  if (!email) {
-    return res.status(400).json({ message: "Email is required" })
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email and password are required" });
   }
 
-  // Validate the email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    return res.status(400).json({ message: "Invalid email format" })
+    return res.status(400).json({ message: "Invalid email format" });
   }
 
-  // Password Validation
-  if (!password) {
-    return res.status(400).json({ message: "Password is required" })
-  }
-
-  // Validate the password length
   if (password.length < 8) {
-    return res
-      .status(400)
-      .json({ message: "Password must be at least 8 characters long" })
+    return res.status(400).json({ message: "Password must be at least 8 characters long" });
   }
 
-  // Implement password complexity requirements (e.g., requiring a mix of uppercase and lowercase letters, numbers, and special characters)
-  const passwordRegex =
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!passwordRegex.test(password)) {
     return res.status(400).json({
-      message:
-        "Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and be at least 8 characters long",
-    })
+      message: "Password must contain at least one uppercase letter, one lowercase letter, one number, one special character, and be at least 8 characters long",
+    });
   }
 
-  let existingUser
+  let existingUser;
   try {
-    existingUser = await User.findOne({ email })
+    existingUser = await User.findOne({ email });
   } catch (err) {
-    console.log(err)
+    return res.status(500).json({ message: "Internal Server Error" });
   }
+
   if (!existingUser) {
-    return res
-      .status(404)
-      .json({ message: "Couldn't find user by this email" })
+    return res.status(400).json({ message: "User does not exist!" });
   }
 
-  const isPasswordCorrect = bcrypt.compareSync(password, existingUser.password)
+  const isPasswordCorrect = bcrypt.compareSync(password, existingUser.password);
   if (!isPasswordCorrect) {
-    return res.status(400).json({ message: "Incorrect Password" })
+    return res.status(400).json({ message: "Incorrect Password!" });
   }
 
-  // Upon successful login, set the session user to the authenticated user
-  req.session.user = existingUser
+  const otp = generateOTP();
+  try {
+    await User.findOneAndUpdate({ email }, { otp, otp_expiry: Date.now() + 15 * 60 * 1000 });
+    await sendOTP(email, otp);
 
-  return res
-    .status(200)
-    .json({ message: "Login Successfully", user: existingUser })
-}
+    const user = {
+      _id: existingUser._id,
+      name: existingUser.name,
+      email: existingUser.email,
+      role: existingUser.role,
+    };
 
-export const logout = (req, res) => {
+    return res.status(200).json({ user, isLoggingIn: true, message: "Logged in successfully, next is to verify OTP!" });
+  } catch (err) {
+    console.error("Error logging in: OTP not sent", err);
+    return res.status(500).json({ message: "Error logging in: OTP not sent" });
+  }
+};
+
+exports.logout = (req, res) => {
   req.session.destroy((err) => {
     if (err) {
-      return res.status(500).json({ message: "Error logging out" })
+      return res.status(500).json({ message: "Error logging out" });
     }
-    res.status(200).json({ message: "Logged out successfully" })
-  })
-}
+    res.status(200).json({ message: "Logged out successfully" });
+  });
+};
 
-export const sendVerificationEmail = async (req, res) => {
-  const { email } = req.body
+exports.verifyOTP = async (req, res) => {
+  const { isLoggingIn, isSigningUp, user, userOTP } = req.body;
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ message: "Invalid email format" })
+  if (!isLoggingIn && !isSigningUp) {
+    return res.status(400).json({ message: "Invalid request" });
   }
 
-  // Generate OTP
-  const otp = generateOTP()
-
+  let existingUser;
   try {
-    // Check if the email already exists in the UserVerification collection
-    let existingUser = await UserVerification.findOne({ email })
+    existingUser = await User.findOne({ email: user.email }).select('-password')
+  } catch (err) {
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
 
-    if (existingUser) {
-      // If the email exists, update the existing document with the new OTP
-      await UserVerification.updateOne({ email }, { $set: { otp } })
-    } else {
-      // If the email doesn't exist, create a new document
-      await UserVerification.create({ email, otp })
+  if (!existingUser) {
+    return res.status(400).json({ message: "User does not exist" });
+  }
+
+  if (isLoggingIn) {
+    if (userOTP !== existingUser.otp) {
+      return res.status(400).json({ message: "Invalid OTP!" });
     }
 
-    // Send OTP email
-    await sendOTP(email, otp)
+    if (Date.now() > existingUser.otp_expiry) {
+      return res.status(400).json({ message: "OTP has expired" });
+    }
 
-    return res
-      .status(200)
-      .json({ message: "OTP sent to email for verification" })
+    req.session.user = existingUser
+
+    return res.status(200).json({ user: req.session.user, message: "Logged in successfully and OTP is verified!" });
+  }
+
+  if (isSigningUp) {
+    if (userOTP !== existingUser.otp) {
+      await User.findOneAndDelete({ email: user.email });
+      return res.status(400).json({ message: "Invalid OTP." });
+    }
+
+    if (Date.now() > existingUser.otp_expiry) {
+      await User.findOneAndDelete({ email: user.email });
+      return res.status(400).json({ message: "OTP has expired" });
+    }
+
+    await User.findOneAndUpdate({ email: user.email }, { verified: true });
+
+    return res.status(200).json({ user: existingUser, message: "Signed up successfully, please login!" });
+  }
+};
+
+exports.loadUser = async (req, res) => {
+
+  if (req.session.user) {
+    return res.status(200).json({ user: req.session.user, message: "User loaded successfully" });
+  } else {
+    return res.status(400).json({ message: "You are not logged in." });
+  }
+};
+
+exports.updateUser = async (req, res) => {
+  const { name, email, role } = req.body;
+
+  if (!name || !email || !role) {
+    return res.status(400).json({ message: "Name, email, and role are required" });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ message: "Invalid email format" });
+  }
+
+  let existingUser;
+  try {
+    existingUser = await User.findOne({ email });
+
+    if (!existingUser) {
+      return res.status(400).json({ message: "User does not exist" });
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { email },
+      { name, email, role },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(500).json({ message: "Failed to update user" });
+    }
+
+    res.status(200).json({ user: updatedUser, message: "User updated successfully" });
   } catch (err) {
-    console.error("Error sending OTP:", err)
-    return res.status(500).json({ message: "Error sending OTP" })
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+exports.deleteUser = async (req, res) => {
+
+  const userID = req.params.userID
+
+  try {
+
+    const result = await User.findByIdAndDelete(userID)
+
+    if (!result) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (err) {
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 }

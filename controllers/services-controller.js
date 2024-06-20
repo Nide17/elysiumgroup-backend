@@ -1,13 +1,13 @@
-import Service from "../models/Service.js"
-import ServiceSchema from "../models/Service.js"
+const Service = require("../models/Service")
+const ServiceSchema = require("../models/Service")
 
-export const getAllServices = async (req, res, next) => {
+exports.getAllServices = async (req, res) => {
   let services
 
   try {
     services = await ServiceSchema.find()
   } catch (err) {
-    console.log(err)
+    res.status(500).json({ error: err.message })
   }
   if (!services) {
     return res.status(200).json({ message: "No services found" })
@@ -15,33 +15,39 @@ export const getAllServices = async (req, res, next) => {
   return res.status(200).json(services)
 }
 
-export const addServices = async (req, res, next) => {
-  const { serviceName, serviceDetail, serviceTitle } = req.body
+exports.addService = async (req, res) => {
+
+  const { serviceName, serviceDetail, serviceTitle, createdBy } = req.body
 
   const service = new Service({
     serviceName,
     serviceDetail,
     serviceTitle,
+    createdBy,
+    lastUpdatedBy: createdBy
   })
+
   try {
     await service.save()
   } catch (err) {
-    console.log(err)
     return res.status(500).json({ message: err })
   }
-  return res.status(200).json(service)
+
+  res.status(201).json({ service, message: "Service added successfully" })
 }
 
-export const updateService = async (req, res, next) => {
-  const { serviceName, serviceDetail, serviceTitle } = req.body
-  const serviceId = req.params.id
+exports.updateService = async (req, res) => {
+
+  const { serviceName, serviceDetail, serviceTitle, creator } = req.body
+  const serviceID = req.params.serviceID
 
   let service
   try {
-    service = await Service.findByIdAndUpdate(serviceId, {
+    service = await Service.findByIdAndUpdate(serviceID, {
       serviceName,
       serviceDetail,
       serviceTitle,
+      lastUpdatedBy: creator && creator._id
     })
   } catch (error) {
     return console.log(error)
@@ -52,10 +58,12 @@ export const updateService = async (req, res, next) => {
   return res.status(200).json(service)
 }
 
-export const deleteService = async (req, res, next) => {
-  const serviceId = req.params.id
+exports.deleteService = async (req, res) => {
+
+  const serviceID = req.params.serviceID
+  
   try {
-    const deletedService = await Service.findByIdAndDelete(serviceId)
+    const deletedService = await Service.findByIdAndDelete(serviceID)
     if (!deletedService) {
       return res.status(400).json({ message: "This service not found" })
     }
@@ -66,7 +74,6 @@ export const deleteService = async (req, res, next) => {
         service: deletedService,
       })
   } catch (error) {
-    console.log(error)
     res.status(500).json({ message: "Failed to delete this service" })
   }
 }
